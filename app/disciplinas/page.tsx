@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, BookOpen, LogOut, Plus, GraduationCap } from "lucide-react";
+import { LayoutDashboard, BookOpen, LogOut, Plus, GraduationCap, CheckSquare } from "lucide-react";
 import { api } from "../../services/api";
 
 // Define a estrutura (tipo) do que o Java vai nos devolver
@@ -89,6 +89,10 @@ export default function DisciplinasPage() {
             <BookOpen size={20} />
             <span className="font-medium">Disciplinas</span>
           </button>
+          <Link href="/tarefas" className="w-full flex items-center gap-3 px-4 py-3 text-indigo-200 hover:text-white hover:bg-indigo-600 rounded-lg transition-colors">
+            <CheckSquare size={20} />
+            <span className="font-medium">Tarefas</span>
+          </Link>
         </nav>
 
         <button onClick={handleLogout} className="mt-auto flex items-center gap-3 px-4 py-3 text-indigo-200 hover:text-white hover:bg-indigo-600 rounded-lg transition-colors">

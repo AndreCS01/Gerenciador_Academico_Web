@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LayoutDashboard, BookOpen, AlertCircle, CheckCircle2, LogOut } from "lucide-react";
+import { LayoutDashboard, BookOpen, AlertCircle, CheckCircle2, LogOut, CheckSquare } from "lucide-react";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -51,6 +51,10 @@ export default function DashboardPage() {
           <Link href="/disciplinas" className="w-full flex items-center gap-3 px-4 py-3 text-indigo-200 hover:text-white hover:bg-indigo-600 rounded-lg transition-colors">
             <BookOpen size={20} />
             <span className="font-medium">Disciplinas</span>
+          </Link>
+          <Link href="/tarefas" className="w-full flex items-center gap-3 px-4 py-3 text-indigo-200 hover:text-white hover:bg-indigo-600 rounded-lg transition-colors">
+            <CheckSquare size={20} />
+            <span className="font-medium">Tarefas</span>
           </Link>
         </nav>
 
