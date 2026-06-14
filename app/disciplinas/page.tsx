@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, BookOpen, LogOut, Plus, GraduationCap, CheckSquare } from "lucide-react";
+// IMPORTAMOS O ÍCONE TRASH2 AQUI TAMBÉM:
+import { LayoutDashboard, BookOpen, LogOut, Plus, CheckSquare, Loader2, Trash2 } from "lucide-react";
 import { api } from "../../services/api";
+import toast, { Toaster } from "react-hot-toast";
 
-// Define a estrutura (tipo) do que o Java vai nos devolver
 interface Disciplina {
   id: number;
   nome: string;
@@ -16,50 +17,65 @@ interface Disciplina {
 export default function DisciplinasPage() {
   const router = useRouter();
   const [autorizado, setAutorizado] = useState(false);
-  
-  // Estados para gerenciar as disciplinas e o formulário
   const [disciplinas, setDisciplinas] = useState<Disciplina[]>([]);
+  
   const [nome, setNome] = useState("");
   const [professor, setProfessor] = useState("");
-  const [erro, setErro] = useState("");
+  
+  const [salvando, setSalvando] = useState(false);
 
-  // Verifica o login e busca as disciplinas no backend logo que a tela abre
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
       router.push("/login");
     } else {
       setAutorizado(true);
-      buscarDisciplinas(); // Chama a função que busca no Java
+      buscarDisciplinas();
     }
   }, [router]);
 
-  // Função GET: Busca a lista no banco de dados
   const buscarDisciplinas = async () => {
     try {
-      const response = await api.get("/disciplinas");
-      setDisciplinas(response.data);
+      const res = await api.get("/disciplinas");
+      setDisciplinas(res.data);
     } catch (error) {
-      console.error("Erro ao buscar disciplinas:", error);
+      toast.error("Erro ao carregar as disciplinas.");
     }
   };
 
-  // Função POST: Envia uma nova disciplina para o banco
   const cadastrarDisciplina = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErro("");
+    setSalvando(true);
 
     try {
-      await api.post("/disciplinas", { nome, professor });
-      
-      // Limpa os campos do formulário
+      await api.post("/disciplinas", {
+        nome: nome,
+        professor: professor
+      });
+
       setNome("");
       setProfessor("");
-      
-      // Atualiza a lista na tela imediatamente
       buscarDisciplinas();
+      
+      toast.success("Disciplina cadastrada com sucesso! 📚");
+      
     } catch (error) {
-      setErro("Erro ao cadastrar a disciplina. Verifique os dados e tente novamente.");
+      toast.error("Erro ao cadastrar a disciplina. Tente novamente.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  // NOVO: Função para deletar a disciplina chamando o Java
+  const deletarDisciplina = async (id: number) => {
+    if (!confirm("ATENÇÃO: Excluir esta disciplina também apagará as tarefas vinculadas a ela no banco de dados. Deseja continuar?")) return;
+
+    try {
+      await api.delete(`/disciplinas/${id}`);
+      toast.success("Disciplina removida com sucesso!");
+      buscarDisciplinas(); // Recarrega a listagem
+    } catch (error) {
+      toast.error("Erro ao tentar excluir a disciplina.");
     }
   };
 
@@ -73,7 +89,9 @@ export default function DisciplinasPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
       
-      {/* Menu Lateral (Sidebar) */}
+      <Toaster position="top-right" reverseOrder={false} />
+
+      {/* Menu Lateral */}
       <aside className="w-full md:w-64 bg-indigo-700 text-white p-6 flex flex-col">
         <div className="flex items-center gap-3 mb-10">
           <BookOpen size={28} className="text-indigo-200" />
@@ -101,76 +119,78 @@ export default function DisciplinasPage() {
         </button>
       </aside>
 
-      {/* Área Principal de Conteúdo */}
       <main className="flex-1 p-8">
         <header className="mb-8">
           <h2 className="text-2xl font-bold text-slate-900">Suas Disciplinas</h2>
           <p className="text-slate-500">Cadastre e gerencie as matérias do seu semestre.</p>
         </header>
 
-        {/* Formulário de Cadastro */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8">
           <h3 className="text-lg font-medium text-slate-900 mb-4 flex items-center gap-2">
             <Plus size={20} className="text-indigo-600" />
             Adicionar Nova Disciplina
           </h3>
-          
-          {erro && <div className="mb-4 p-3 bg-rose-50 text-rose-600 text-sm rounded-md border border-rose-200">{erro}</div>}
 
           <form onSubmit={cadastrarDisciplina} className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <input 
-                type="text" 
-                placeholder="Nome da matéria (ex: Inteligência Artificial)" 
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                required
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-colors"
-              />
-            </div>
-            <div className="flex-1">
-              <input 
-                type="text" 
-                placeholder="Nome do Professor(a)" 
-                value={professor}
-                onChange={(e) => setProfessor(e.target.value)}
-                required
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-colors"
-              />
-            </div>
-            <button type="submit" className="bg-indigo-600 text-white font-medium py-2 px-6 rounded-md hover:bg-indigo-700 transition-colors whitespace-nowrap">
-              Salvar
+            <input 
+              type="text" 
+              placeholder="Nome da matéria (ex: Inteligência Artificial)" 
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              required
+              disabled={salvando}
+              className="flex-1 px-4 py-2 bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+            />
+            
+            <input 
+              type="text" 
+              placeholder="Nome do Professor(a)" 
+              value={professor}
+              onChange={(e) => setProfessor(e.target.value)}
+              required
+              disabled={salvando}
+              className="flex-1 px-4 py-2 bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+            />
+
+            <button 
+              type="submit" 
+              disabled={salvando}
+              className="bg-indigo-600 text-white font-medium py-2 px-6 rounded-md hover:bg-indigo-700 transition-colors flex items-center justify-center min-w-[120px] disabled:bg-indigo-400"
+            >
+              {salvando ? <Loader2 size={20} className="animate-spin" /> : "Salvar"}
             </button>
           </form>
         </div>
 
-        {/* Listagem em Cards */}
-        {disciplinas.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-            <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-4">
-              <GraduationCap size={32} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {disciplinas.length === 0 ? (
+            <div className="col-span-full p-12 text-center text-slate-500 bg-white rounded-xl border border-slate-200">
+              Nenhuma disciplina cadastrada ainda. Comece preenchendo o formulário acima! 📑
             </div>
-            <h3 className="text-lg font-medium text-slate-900 mb-2">Nenhuma disciplina cadastrada</h3>
-            <p className="text-slate-500">Utilize o formulário acima para adicionar sua primeira matéria do semestre.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {disciplinas.map((disciplina) => (
-              <div key={disciplina.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col hover:border-indigo-300 transition-colors">
-                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center mb-4">
+          ) : (
+            disciplinas.map((disc) => (
+              <div key={disc.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-4 hover:shadow-md transition-shadow relative group">
+                
+                {/* NOVO: Botão de Lixeira posicionado no topo direito do card */}
+                <button 
+                  onClick={() => deletarDisciplina(disc.id)}
+                  className="absolute top-4 right-4 text-slate-400 hover:text-rose-600 p-1.5 rounded-md hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                  title="Excluir disciplina"
+                >
+                  <Trash2 size={16} />
+                </button>
+
+                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center">
                   <BookOpen size={20} />
                 </div>
-                <h4 className="text-lg font-bold text-slate-900 line-clamp-1" title={disciplina.nome}>
-                  {disciplina.nome}
-                </h4>
-                <p className="text-slate-500 text-sm mt-1 flex items-center gap-2">
-                  <GraduationCap size={16} />
-                  Prof. {disciplina.professor}
-                </p>
+                <div>
+                  <h4 className="text-lg font-bold text-slate-900 pr-6">{disc.nome}</h4>
+                  <p className="text-sm text-slate-500 mt-1">Prof. {disc.professor}</p>
+                </div>
               </div>
-            ))}
-          </div>
-        )}
+            ))
+          )}
+        </div>
       </main>
       
     </div>

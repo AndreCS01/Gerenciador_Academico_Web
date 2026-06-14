@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, BookOpen, LogOut, Plus, CheckCircle2, Circle, Calendar, CheckSquare } from "lucide-react";
+// IMPORTAMOS O ÍCONE TRASH2 AQUI:
+import { LayoutDashboard, BookOpen, LogOut, Plus, CheckCircle2, Circle, Calendar, CheckSquare, Loader2, Trash2 } from "lucide-react";
 import { api } from "../../services/api";
+import toast, { Toaster } from "react-hot-toast";
 
 interface Disciplina {
   id: number;
@@ -14,8 +16,8 @@ interface Disciplina {
 interface Tarefa {
   id: number;
   titulo: string;
-  dataLimite: string; // Ajustado para bater com o Java
-  status: string;     // Ajustado para bater com o Java
+  dataLimite: string;
+  status: string;
   disciplina: Disciplina;
 }
 
@@ -29,7 +31,8 @@ export default function TarefasPage() {
   const [titulo, setTitulo] = useState("");
   const [dataEntrega, setDataEntrega] = useState("");
   const [disciplinaId, setDisciplinaId] = useState("");
-  const [erro, setErro] = useState("");
+  
+  const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -50,23 +53,24 @@ export default function TarefasPage() {
       setTarefas(resTarefas.data);
       setDisciplinas(resDisciplinas.data);
     } catch (error) {
-      console.error("Erro ao buscar dados:", error);
+      toast.error("Erro ao carregar as tarefas.");
     }
   };
 
   const cadastrarTarefa = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErro("");
-
+    
     if (!disciplinaId) {
-      setErro("Por favor, selecione uma disciplina.");
+      toast.error("Por favor, selecione uma disciplina.");
       return;
     }
+
+    setSalvando(true);
 
     try {
       await api.post("/tarefas", { 
         titulo: titulo, 
-        dataLimite: dataEntrega, // Enviamos com o nome que o Java exige
+        dataLimite: dataEntrega,
         status: "A_FAZER",
         disciplina: { 
             id: Number(disciplinaId) 
@@ -77,24 +81,43 @@ export default function TarefasPage() {
       setDataEntrega("");
       setDisciplinaId("");
       buscarDadosIniciais();
+      
+      toast.success("Tarefa criada com sucesso!");
+      
     } catch (error) {
-      setErro("Erro ao cadastrar a tarefa. Verifique se os dados estão corretos.");
+      toast.error("Erro ao criar a tarefa. Verifique os dados.");
+    } finally {
+      setSalvando(false);
     }
   };
 
   const alternarStatusTarefa = async (id: number, statusAtual: string) => {
     try {
-      // Descobre qual é o status contrário para enviar
       const novoStatus = statusAtual === 'CONCLUIDO' ? 'A_FAZER' : 'CONCLUIDO';
-      
-      // Ajustamos a rota para adicionar o "/status" no final
-      // E enviamos o dado como Parâmetro de URL (?status=...) exatamente como o Java pediu!
       await api.put(`/tarefas/${id}/status?status=${novoStatus}`);
-      
-      // Recarrega a lista para mostrar a alteração na tela
       buscarDadosIniciais();
+      
+      if (novoStatus === 'CONCLUIDO') {
+        toast.success("Tarefa concluída! Mandou bem! 🎉");
+      } else {
+        toast('Tarefa reaberta.', { icon: '🔄' });
+      }
+      
     } catch (error) {
-      console.error("Erro ao atualizar status:", error);
+      toast.error("Erro ao atualizar o status.");
+    }
+  };
+
+  // NOVO: Função para excluir a tarefa chamando o Java
+  const deletarTarefa = async (id: number) => {
+    if (!confirm("Tem certeza que deseja excluir esta tarefa?")) return;
+
+    try {
+      await api.delete(`/tarefas/${id}`);
+      toast.success("Tarefa removida com sucesso!");
+      buscarDadosIniciais(); // Atualiza a lista na tela imediatamente
+    } catch (error) {
+      toast.error("Erro ao tentar excluir a tarefa.");
     }
   };
 
@@ -122,6 +145,10 @@ export default function TarefasPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
+      
+      <Toaster position="top-right" reverseOrder={false} />
+
+      {/* Menu Lateral */}
       <aside className="w-full md:w-64 bg-indigo-700 text-white p-6 flex flex-col">
         <div className="flex items-center gap-3 mb-10">
           <BookOpen size={28} className="text-indigo-200" />
@@ -160,8 +187,6 @@ export default function TarefasPage() {
             <Plus size={20} className="text-indigo-600" />
             Nova Tarefa
           </h3>
-          
-          {erro && <div className="mb-4 p-3 bg-rose-50 text-rose-600 text-sm rounded-md border border-rose-200">{erro}</div>}
 
           <form onSubmit={cadastrarTarefa} className="flex flex-col lg:flex-row gap-4">
             <input 
@@ -170,7 +195,8 @@ export default function TarefasPage() {
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
               required
-              className="flex-1 px-4 py-2 bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              disabled={salvando}
+              className="flex-1 px-4 py-2 bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
             />
             
             <input 
@@ -178,14 +204,16 @@ export default function TarefasPage() {
               value={dataEntrega}
               onChange={(e) => setDataEntrega(e.target.value)}
               required
-              className="px-4 py-2 bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700"
+              disabled={salvando}
+              className="px-4 py-2 bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 disabled:opacity-50"
             />
 
             <select 
               value={disciplinaId}
               onChange={(e) => setDisciplinaId(e.target.value)}
               required
-              className="px-4 py-2 bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700"
+              disabled={salvando}
+              className="px-4 py-2 bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 disabled:opacity-50"
             >
               <option value="" disabled>Selecione a disciplina</option>
               {disciplinas.map(disc => (
@@ -193,8 +221,12 @@ export default function TarefasPage() {
               ))}
             </select>
 
-            <button type="submit" className="bg-indigo-600 text-white font-medium py-2 px-6 rounded-md hover:bg-indigo-700 transition-colors">
-              Salvar
+            <button 
+              type="submit" 
+              disabled={salvando}
+              className="bg-indigo-600 text-white font-medium py-2 px-6 rounded-md hover:bg-indigo-700 transition-colors flex items-center justify-center min-w-[120px] disabled:bg-indigo-400"
+            >
+              {salvando ? <Loader2 size={20} className="animate-spin" /> : "Salvar"}
             </button>
           </form>
         </div>
@@ -208,7 +240,7 @@ export default function TarefasPage() {
                 const isConcluida = tarefa.status === 'CONCLUIDO';
                 
                 return (
-                  <li key={tarefa.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4">
+                  <li key={tarefa.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group">
                     <button onClick={() => alternarStatusTarefa(tarefa.id, tarefa.status)} className="text-indigo-600 hover:text-indigo-800 transition-colors">
                       {isConcluida ? <CheckCircle2 size={24} /> : <Circle size={24} />}
                     </button>
@@ -226,6 +258,15 @@ export default function TarefasPage() {
                         </span>
                       </div>
                     </div>
+
+                    {/* NOVO: Botão de Lixeira Vermelha */}
+                    <button 
+                      onClick={() => deletarTarefa(tarefa.id)}
+                      className="text-slate-400 hover:text-rose-600 p-2 rounded-lg hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      title="Excluir tarefa"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </li>
                 );
               })}
